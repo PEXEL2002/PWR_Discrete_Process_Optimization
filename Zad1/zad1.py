@@ -1,49 +1,47 @@
 from RandomNumberGenerator import RandomNumberGenerator
 import numpy as np
-import copy
+from copy import copy, deepcopy
 
 def gen(seed,n):
     rand = RandomNumberGenerator(seed)
     S = []
     for i in range(n):
-        S.append([rand.nextInt(1,29)])
-    maxr = np.sum(S)
+        S.append([0,0,0])
+        S[i][1]=rand.nextInt(1,29)
+    maxr = 0
     for i in range(n):
-        S[i].append(rand.nextInt(1,maxr))
+        maxr +=S[i][1]
+    for i in range(n):
+        S[i][0]=rand.nextInt(1,maxr)
     X = 29
     for i in range(n):
-        S[i].append(rand.nextInt(1, X))
+        S[i][2]=rand.nextInt(1, X)
     return S
 def printGen(S):
-    """
-        R - przygotowaniad
-        P - czas przetwarzania
-        Q - czas chłodzenia przetwarzania
-    """
-    print(S)
+    print("ID\tr\tp\tq")
+    for i, task in enumerate(S):
+        print(f"{i+1}\t{task[0]}\t{task[1]}\t{task[2]}")
 
 def C_max(s):
-    S1 = s[0][0]
-    C1 = S1 + s[0][1]
-    C_max = C1 + s[0][2]
+    t = s[0][0]
+    C = t + s[0][1]
+    C_max = C + s[0][2]
     for j in range(1, len(s)):
-        Sj = max(s[j][0], C1)
-        C1 = Sj + s[j][1]
-        C_max = max(C_max, C1 + s[j][2])
+        t = max(s[j][0], C)
+        C = t + s[j][1]
+        C_max = max(C_max, C + s[j][2])
     return C_max
-def sort(S):
-    S_sorted = sorted(S, key=lambda x: x[1])
-    return S_sorted
+
 def schrage(tasks):
     N = sorted(tasks, key=lambda x: x[0])
     G = []
     pi = []
     C_max = 0
     t = N[0][0] if N else 0
-    while len(G) > 0 or len(N) > 0:
-        while len(N)>0 and N[0][0] <= t:
+    while G or N:
+        while N and N[0][0] <= t:
             G.append(N.pop(0))
-        if len(G) > 0:
+        if G:
             j_star = max(G, key=lambda x: x[2])
             G.remove(j_star)
             pi.append(j_star)
@@ -51,16 +49,17 @@ def schrage(tasks):
             C_max = max(C_max, t + j_star[2])
         else:
             t = N[0][0] if N else t
-    return pi, C_max
+    return [list(task) for task in pi], C_max
+
 def schrageWithInterupt(tasks):
-    N = sorted(tasks, key=lambda x: x[0])
+    N = [list(task) for task in sorted(tasks, key=lambda x: x[0])]
     G = []
     t = 0
     C_max = 0
     l = None
     while G or N:
         while N and N[0][0] <= t:
-            j = N.pop(0)
+            j = list(N.pop(0))
             G.append(j)
             if l and j[2] > l[2]:
                 l[1] -= (t - j[0])
@@ -70,67 +69,93 @@ def schrageWithInterupt(tasks):
         if G:
             j_star = max(G, key=lambda x: x[2])
             G.remove(j_star)
-            l = j_star
-            t += j_star[1]
-            C_max = max(C_max, t + j_star[2])
+            l = list(j_star)
+            t += l[1]
+            C_max = max(C_max, t + l[2])
         else:
             t = N[0][0] if N else t
     return C_max
+
+def find_task_index(task, tasks):
+    for i, t in enumerate(tasks):
+        if t[0] == task[0] and t[1] == task[1] and t[2] == task[2]:
+            return i
+    raise ValueError("Task not found in original list.")
 
 
 def carlier(tasks, UB=float('inf'), best_pi=None):
     pi, U = schrage(tasks)
     if U < UB:
         UB = U
-        best_pi = list(pi)
-    C_max_values = [sum(task[1] for task in pi[:i + 1]) + pi[i][2] for i in range(len(pi))]
-    b = max(range(len(pi)), key=lambda j: C_max_values[j])
-    a = min(
-        (j for j in range(b + 1)),
-        key=lambda j: pi[j][0] + sum(pi[k][1] for k in range(j, b + 1)) + pi[b][2]
-    )
-    c_candidates = [j for j in range(a, b) if pi[j][2] < pi[b][2]]
-    c = max(c_candidates) if c_candidates else None
+        best_pi = [list(task) for task in pi]
+    C = 0
+    S = []
+    C_max_list = []
+    for task in pi:
+        C = max(C, task[0]) + task[1]
+        S.append(C - task[1])
+        C_max_list.append(C + task[2])
+    b = max(range(len(C_max_list)), key=lambda j: C_max_list[j])
+    a = None
+    for j in range(b + 1):
+        sum_p = sum(pi[k][1] for k in range(j, b + 1))
+        if pi[j][0] + sum_p + pi[b][2] == C_max_list[b]:
+            a = j
+            break
+    c = None
+    for j in range(b - 1, a-1, -1):
+        if pi[j][2] < pi[b][2]:
+            if c is None:
+                c = j
+            else:
+                if pi[j][2] > pi[c][2]:
+                    c = j
     if c is None:
-        if best_pi is None:
-            best_pi = list(pi)
-            return UB, best_pi
-    K = pi[c + 1:b + 1] if c is not None else []
+        return UB, best_pi
+
+    # Wyznacz K, r̂, q̂, p̂
+    K = pi[c + 1:b + 1]
     r_hat = min((task[0] for task in K), default=0)
     q_hat = min((task[2] for task in K), default=0)
     p_hat = sum(task[1] for task in K)
-    original_r_c, original_p_c, original_q_c = pi[c]
-    pi_copy = list(pi)
-    pi_copy[c] = (max(original_r_c, r_hat + p_hat), original_p_c, original_q_c)
-    LB = schrageWithInterupt(pi_copy)
+
+    task_c = pi[c]
+    idx_c = find_task_index(task_c, tasks)
+
+    tasks_r = [list(task) for task in tasks]
+    restoreR = tasks_r
+    tasks_r[idx_c][0] = max(task_c[0], r_hat + p_hat)
+    LB = schrageWithInterupt(tasks_r)
     if LB < UB:
-        UB, best_pi = carlier(pi_copy, UB, best_pi)
-    pi[c] = (original_r_c, original_p_c, original_q_c)
-    pi_copy = list(pi)
-    pi_copy[c] = (original_r_c, original_p_c, max(original_q_c, q_hat + p_hat))
-    LB = schrageWithInterupt(pi_copy)
+        carlier(tasks_r, UB, best_pi)
+    tasks_r = restoreR
+
+    tasks_q = [list(task) for task in tasks]
+    restoreQ = tasks_q
+    tasks_q[idx_c][2] = max(task_c[2], q_hat + p_hat)
+    LB = schrageWithInterupt(tasks_q)
     if LB < UB:
-        UB, best_pi = carlier(pi_copy, UB, best_pi)
-    pi[c] = (original_r_c, original_p_c, original_q_c)
+        carlier(tasks_q, UB, best_pi)
+    tasks_q = restoreQ
     return UB, best_pi
-
-
 seed = int(input("Podaj ziarno losowania: "))
 n = int(input("Podaj liczbę operacji: "))
 S = gen(seed,n)
-data_copy = copy.deepcopy(S) # tworzenie głębokiej kopi
-S_schrage = C_max(schrage(copy.deepcopy(S))[0])
-S_schrage_with_Interupt = schrageWithInterupt(copy.deepcopy(S))
-S_carier = carlier(S.copy(), S_schrage)
+data_copy = deepcopy(S) # tworzenie głębokiej kopi
+S_shrage = schrage(deepcopy(S))
+S_schrage = C_max(S_shrage[0])
+S_schrage_with_Interupt = schrageWithInterupt(deepcopy(S))
+S_carier = carlier(deepcopy(S), float('inf'))
+print(S_carier)
 print("Wygenerowana sekfencja: ")
 printGen(S)
 print("C_max:",C_max(S))
-print("Wynik po algorytmnie Shrage: ")
-printGen(schrage(copy.deepcopy(S)))
-print(f"C_max dla Shrage: {S_schrage}" )
+#print("Wynik po algorytmnie Shrage: ")
+#printGen(S_shrage[0])
+print(f"C_max dla Shrage: {S_shrage[1]}" )
 print(f"C_max dla Shrage z przerwaniami: {S_schrage_with_Interupt}")
-print(f"Wynik po algorytmie Carlier:")
-printGen(S_carier)
+#print(f"Wynik po algorytmie Carlier:")
+#printGen(S_carier[1])
 print(f"C_max po algorytmie Carlier: {S_carier[0]}")
 
 """ DANE TESTOWE
@@ -152,7 +177,6 @@ data:4     51444      34444   33878
 #     [0, 931, 0], [0, 863, 0], [0, 822, 0], [0, 982, 0], [0, 926, 0],
 #     [0, 993, 0], [0, 945, 0], [0, 978, 0], [8368, 1, 12548]
 # ]
-#
 # data3 = [
 #     [15808, 838, 11659], [11731, 470, 14049], [8933, 177, 8647], [15165, 472, 4137], [10164, 732, 13213],
 #     [9520, 768, 2848], [13481, 895, 11629], [16681, 524, 13649], [237, 811, 15392], [360, 890, 1967],
@@ -181,17 +205,20 @@ data:4     51444      34444   33878
 # C_maxT = [25994,33465,57403,51444]
 # SchrageT = [13981,21529,31683,34444]
 # CarierT = [13862,20917,31343,33878]
-#
 # for i in range(4):
-#     data_copy = copy.deepcopy(data[i]) # tworzenie głębokiej kopi
+#     data_copy = [list(task) for task in deepcopy(data[i])]
+#     print(f"carlier {i+1}")
 #     car = carlier(data_copy, UB=float('inf'))[0]
-#     C_maxV = C_max(copy.deepcopy(data[i]))
-#     schrageV = schrage(copy.deepcopy(data[i]))[1]
-#     if(CarierT[i] != car):
+#     print(f"c_max {i+1}")
+#     C_maxV = C_max(deepcopy(data_copy))
+#     print(f"schrage {i+1}")
+#     schrageV = schrage(deepcopy(data_copy))[1]
+#     if CarierT[i] != car:
 #         print(f"błąd dla liczenia Carier {i+1}")
 #         print(f"{CarierT[i]} \t {car}")
-#     if(C_maxT[i] != C_maxV):
+#     if C_maxT[i] != C_maxV:
 #         print(f"błąd dla liczenia C_max {i+1}")
-#     if(SchrageT[i] != schrageV):
+#     if SchrageT[i] != schrageV:
 #         print(f"błąd dla liczenia Schrage {i+1}")
 #         print(f"{SchrageT[i]} \t {schrageV}")
+#     print(i)
