@@ -7,7 +7,7 @@ import time
 low, high = 0, 2147483646
 seeds = np.linspace(low, high, 20, dtype=int)
 machines = [5, 10, 20]
-numberOfSentences = [5, 10, 20, 40]
+numberOfSentences = [5, 8, 10]
 
 # Lista do przechowywania wyników
 results = []
