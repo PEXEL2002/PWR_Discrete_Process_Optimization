@@ -26,10 +26,8 @@ Zadania:
 - Muszą być wykonywane bez przerw,
 - Występują kolejno (ciągłość pracy maszyny),
 - Spóźnienie definiujemy jako:
-  
-  \[
-  T_{\pi(j)} = \max(C_{\pi(j)} - d_{\pi(j)}, 0)
-  \]
+
+  T_{pi(j)} = max(C_{pi(j)} - d_{pi(j)}, 0)
 
 Funkcja celu:
 F(pi) = sum_{j in J} w_{pi(j)} * T_{pi(j)}
