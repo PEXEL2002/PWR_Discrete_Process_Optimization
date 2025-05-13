@@ -116,12 +116,12 @@ def tabuSearch(Tasks, start_permutation=None, stopValue=100, tabu_tenure=7, bloc
         tabu_list.append(best_move)
         if len(tabu_list) > tabu_tenure:
             tabu_list.pop(0)
-        print(f"Iteracja {iteration + 1}: permutacja = {current_perm}, Cmax = {current_cmax}")
+        # print(f"Iteracja {iteration + 1}: permutacja = {current_perm}, Cmax = {current_cmax}")
     return best_perm, best_cmax, cmax_history
 
 # ===================================================================
 if __name__ == "__main__":
-    tasks = gen(123, 10, 5)
+    tasks = gen(123213, 20, 5)
     start_perm = alf_Johnson(tasks)
     print("Permutacja z algorytmu Johnsona:", start_perm)
     best_perm, best_cmax, cmax_history = tabuSearch(
